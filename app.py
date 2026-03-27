@@ -1,19 +1,34 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Support Summary", layout="wide")
+# -----------------------------
+# PAGE CONFIG
+# -----------------------------
+st.set_page_config(page_title="Support Insights", layout="wide")
 
-st.title("📊 Weekly Support Summary (Manager View)")
-st.caption("Understand key issues in under 30 seconds")
+# -----------------------------
+# CLEAN UI
+# -----------------------------
+st.markdown("""
+<style>
+.main {background-color: #0e1117; color: white;}
+h1, h2, h3 {color: #00ffcc;}
+.block-container {padding-top: 2rem;}
+</style>
+""", unsafe_allow_html=True)
 
+st.title("📊 Weekly Support Insights")
+st.caption("Actionable insights for managers (30-sec view)")
+
+# -----------------------------
+# FILE UPLOAD
+# -----------------------------
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
 if uploaded_file:
 
     df = pd.read_csv(uploaded_file)
     df.columns = df.columns.str.strip().str.lower()
-
-    # Basic cleaning
     df.fillna("unknown", inplace=True)
 
     # Normalize columns
@@ -25,26 +40,33 @@ if uploaded_file:
         'id': 'ticket_id'
     }, inplace=True)
 
+    # Status cleaning
     df['status'] = df['status'].astype(str).str.lower()
 
-    # Identify unresolved
+    # Unresolved
     unresolved = df[~df['status'].isin(['resolved', 'closed', 'done'])]
 
     # -----------------------------
-    # 1. TOP ISSUES (FIXED FORMAT)
+    # TOP ISSUES (DYNAMIC BUT CONTROLLED)
     # -----------------------------
     st.subheader("🔥 Top Issue Categories")
 
-    st.write("""
-    - Delivery Delays — Highest complaints  
-    - Damaged Products — Second highest  
-    - Refund / Replacement Delays — Moderate  
-    - Wrong Items Shipped — Low  
-    - Product Quality Issues — Low  
-    """)
+    issue_counts = df['issue_category'].value_counts().head(5)
+
+    for i, (issue, count) in enumerate(issue_counts.items()):
+        if i == 0:
+            label = "Highest"
+        elif i == 1:
+            label = "High"
+        elif i == 2:
+            label = "Moderate"
+        else:
+            label = "Low"
+
+        st.write(f"- {issue.title()} — {label} complaints")
 
     # -----------------------------
-    # 2. UNRESOLVED TICKETS
+    # UNRESOLVED TICKETS
     # -----------------------------
     st.subheader("⚠️ Unresolved Tickets")
 
@@ -53,11 +75,11 @@ if uploaded_file:
         if "delay" in issue:
             return "Courier delay"
         elif "damage" in issue:
-            return "Waiting warehouse confirmation"
+            return "Warehouse issue"
         elif "wrong" in issue:
-            return "Replacement not dispatched"
+            return "Dispatch error"
         elif "refund" in issue:
-            return "Payment processing pending"
+            return "Payment pending"
         else:
             return "Under investigation"
 
@@ -67,30 +89,33 @@ if uploaded_file:
     st.dataframe(unresolved_display)
 
     # -----------------------------
-    # 3. KEY INSIGHTS (FIXED)
+    # KEY INSIGHTS (SEMI-DYNAMIC)
     # -----------------------------
     st.subheader("📈 Key Patterns / Insights")
 
-    st.write("""
-    - 🚚 Most complaints are related to delivery delays (logistics issue)  
-    - 📦 Some products are repeatedly reported for damage  
-    - ⏳ Refund-related tickets are taking longer than expected  
-    - 💤 Some tickets are stuck without updates  
-    - 📅 Weekend tickets show slower resolution  
-    """)
+    top_issue = issue_counts.idxmax()
+    unresolved_pct = (len(unresolved) / len(df)) * 100 if len(df) else 0
+
+    st.write(f"- Most complaints are related to **{top_issue}**")
+    st.write("- Logistics and warehouse issues are major contributors")
+    st.write("- Some tickets remain stuck without updates")
+    st.write("- Refund-related issues take longer time")
+    st.write(f"- {round(unresolved_pct,1)}% tickets are unresolved")
 
     # -----------------------------
-    # 4. MANAGER SUMMARY (MOST IMPORTANT)
+    # MANAGER SUMMARY (SMART + CONTROLLED)
     # -----------------------------
     st.subheader("🧠 Manager Summary")
 
-    st.success("""
-    - Delivery delays are the most frequent issue this week  
-    - Around 20–30% tickets remain unresolved due to logistics and warehouse delays  
-    - Certain products are causing repeated complaints and need quality check  
-    - Refund and replacement processes are slower than expected  
-    - Immediate focus required on logistics coordination and product quality  
-    """)
+    summary = f"""
+    - {top_issue.title()} is the most frequent issue this week  
+    - {round(unresolved_pct,1)}% tickets remain unresolved  
+    - Logistics and warehouse delays are key bottlenecks  
+    - Certain products may require quality review  
+    - Immediate action needed on operations and resolution speed  
+    """
+
+    st.success(summary)
 
 else:
-    st.info("Upload your dataset to view summary")
+    st.info("Upload dataset to generate insights")
